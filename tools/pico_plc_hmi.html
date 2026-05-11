@@ -1,0 +1,955 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pico PLC HMI</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f4;
+      --panel: #ffffff;
+      --panel-2: #eef3ea;
+      --text: #1e2520;
+      --muted: #69736c;
+      --line: #d9dfd7;
+      --green: #168047;
+      --green-soft: #dff4e8;
+      --amber: #b86e00;
+      --amber-soft: #fff0cf;
+      --red: #bf2f32;
+      --red-soft: #fde3df;
+      --ink: #26352c;
+      --shadow: 0 12px 36px rgba(31, 44, 34, 0.08);
+      --radius: 8px;
+      font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background:
+        linear-gradient(180deg, rgba(223, 244, 232, 0.72), rgba(246, 247, 244, 0.2) 270px),
+        var(--bg);
+      color: var(--text);
+    }
+
+    button,
+    select,
+    input,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--text);
+      min-height: 38px;
+      padding: 0 12px;
+      cursor: pointer;
+      transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+    }
+
+    button:hover:not(:disabled) {
+      border-color: #aeb9b0;
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.52;
+    }
+
+    .primary {
+      background: var(--green);
+      border-color: var(--green);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .danger {
+      background: var(--red-soft);
+      border-color: #efb8b0;
+      color: #8c1f22;
+      font-weight: 700;
+    }
+
+    .ghost {
+      background: transparent;
+    }
+
+    .page {
+      width: min(1220px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 24px 0 32px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: end;
+      gap: 16px;
+      padding: 18px 0 22px;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 30px;
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      margin-top: 8px;
+      font-size: 14px;
+    }
+
+    .status-strip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 30px;
+      padding: 0 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: #9aa49d;
+    }
+
+    .dot.ok {
+      background: var(--green);
+      box-shadow: 0 0 0 4px rgba(22, 128, 71, 0.14);
+    }
+
+    .dot.warn {
+      background: var(--amber);
+      box-shadow: 0 0 0 4px rgba(184, 110, 0, 0.14);
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: auto auto auto 1fr auto;
+      gap: 10px;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 12px;
+      box-shadow: var(--shadow);
+      margin-bottom: 16px;
+    }
+
+    select,
+    input[type="text"] {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--text);
+      min-height: 38px;
+      padding: 0 10px;
+    }
+
+    .toolbar .spacer {
+      min-width: 8px;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(340px, 0.65fr);
+      gap: 16px;
+    }
+
+    .stack {
+      display: grid;
+      gap: 16px;
+    }
+
+    section,
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel-2);
+    }
+
+    .section-head h2 {
+      font-size: 17px;
+      letter-spacing: 0;
+    }
+
+    .section-body {
+      padding: 16px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 12px;
+      background: #fff;
+      min-height: 86px;
+      display: grid;
+      align-content: space-between;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .metric strong {
+      font-family: Consolas, "Cascadia Mono", monospace;
+      font-size: 22px;
+      color: var(--ink);
+      word-break: break-word;
+    }
+
+    .io-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(136px, 1fr));
+      gap: 10px;
+    }
+
+    .channel {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      min-height: 104px;
+      padding: 12px;
+      background: #fff;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      grid-template-rows: auto 1fr auto;
+      gap: 6px;
+      align-items: start;
+    }
+
+    .channel.active {
+      border-color: rgba(22, 128, 71, 0.45);
+      background: var(--green-soft);
+    }
+
+    .channel.pending {
+      border-color: rgba(184, 110, 0, 0.48);
+      background: var(--amber-soft);
+    }
+
+    .channel-name {
+      font-weight: 800;
+      font-size: 15px;
+    }
+
+    .gpio {
+      color: var(--muted);
+      font-size: 12px;
+      font-family: Consolas, "Cascadia Mono", monospace;
+      text-align: right;
+    }
+
+    .lamp {
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      background: #bcc4be;
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+      grid-row: 2;
+      align-self: center;
+      justify-self: end;
+    }
+
+    .active .lamp {
+      background: var(--green);
+      box-shadow: 0 0 0 6px rgba(22, 128, 71, 0.13), inset 0 0 0 1px rgba(255, 255, 255, 0.42);
+    }
+
+    .pending .lamp {
+      background: var(--amber);
+      box-shadow: 0 0 0 6px rgba(184, 110, 0, 0.13), inset 0 0 0 1px rgba(255, 255, 255, 0.42);
+    }
+
+    .bit {
+      color: var(--muted);
+      font-size: 12px;
+      grid-column: 1 / -1;
+      align-self: end;
+      font-family: Consolas, "Cascadia Mono", monospace;
+    }
+
+    .switch {
+      width: 56px;
+      height: 30px;
+      border-radius: 999px;
+      border: 1px solid #b9c2ba;
+      background: #d8dfd8;
+      padding: 3px;
+      grid-row: 2;
+      justify-self: end;
+      align-self: center;
+      cursor: pointer;
+    }
+
+    .switch::after {
+      content: "";
+      display: block;
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      background: #fff;
+      box-shadow: 0 2px 7px rgba(0, 0, 0, 0.18);
+      transition: transform 140ms ease;
+    }
+
+    .switch.on {
+      background: var(--green);
+      border-color: var(--green);
+    }
+
+    .switch.on::after {
+      transform: translateX(26px);
+    }
+
+    .switch:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .full {
+      grid-column: 1 / -1;
+    }
+
+    .manual-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .log {
+      height: 268px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #111713;
+      color: #d8f1df;
+      padding: 10px;
+      font-family: Consolas, "Cascadia Mono", monospace;
+      font-size: 12px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+    }
+
+    .notice {
+      border: 1px solid #efd2a4;
+      background: #fff8e8;
+      color: #6a4400;
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .toast {
+      min-height: 34px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 980px) {
+      main,
+      header {
+        grid-template-columns: 1fr;
+      }
+
+      .status-strip {
+        justify-content: flex-start;
+      }
+
+      .toolbar {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .toolbar .spacer {
+        display: none;
+      }
+
+      .io-grid {
+        grid-template-columns: repeat(2, minmax(136px, 1fr));
+      }
+    }
+
+    @media (max-width: 560px) {
+      .page {
+        width: min(100vw - 18px, 1220px);
+        padding-top: 12px;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+
+      .toolbar,
+      .summary-grid,
+      .io-grid,
+      .actions,
+      .manual-row {
+        grid-template-columns: 1fr;
+      }
+
+      .channel {
+        min-height: 92px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div>
+        <h1>Pico PLC HMI</h1>
+        <p class="subtitle">USB Web Serial 上位机 · IN1-IN8 监控 · OUT1-OUT8 控制</p>
+      </div>
+      <div class="status-strip">
+        <span class="pill"><span id="linkDot" class="dot"></span><span id="linkText">未连接</span></span>
+        <span class="pill">Pico: <strong id="picoState">--</strong></span>
+        <span class="pill">最后帧: <strong id="lastFrame">--</strong></span>
+      </div>
+    </header>
+
+    <div class="toolbar">
+      <button id="connectBtn" class="primary" title="选择 Pico USB 串口">连接</button>
+      <button id="disconnectBtn" title="关闭当前串口" disabled>断开</button>
+      <select id="baudSelect" title="USB CDC 通常忽略该值，但浏览器需要设置">
+        <option value="115200">115200</option>
+        <option value="57600">57600</option>
+        <option value="9600">9600</option>
+      </select>
+      <div class="spacer"></div>
+      <button id="demoBtn" class="ghost" title="本地生成示例数据">预览数据</button>
+    </div>
+
+    <main>
+      <div class="stack">
+        <section>
+          <div class="section-head">
+            <h2>运行状态</h2>
+            <span class="pill">协议: USB CDC ASCII</span>
+          </div>
+          <div class="section-body">
+            <div class="summary-grid">
+              <div class="metric">
+                <span>RUN</span>
+                <strong id="runValue">--</strong>
+              </div>
+              <div class="metric">
+                <span>MODE</span>
+                <strong id="modeValue">--</strong>
+              </div>
+              <div class="metric">
+                <span>IN MASK</span>
+                <strong id="inMaskValue">0x00</strong>
+              </div>
+              <div class="metric">
+                <span>OUT MASK</span>
+                <strong id="outMaskValue">0x00</strong>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-head">
+            <h2>输入监控</h2>
+            <span class="pill">GP2-GP9 · 高电平有效</span>
+          </div>
+          <div class="section-body">
+            <div id="inputsGrid" class="io-grid"></div>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-head">
+            <h2>输出控制</h2>
+            <span class="pill">GP10-GP17 · 高电平有效</span>
+          </div>
+          <div class="section-body">
+            <div id="outputsGrid" class="io-grid"></div>
+          </div>
+        </section>
+      </div>
+
+      <aside class="stack">
+        <section>
+          <div class="section-head">
+            <h2>控制台</h2>
+            <span class="pill" id="txState">TX 空闲</span>
+          </div>
+          <div class="section-body">
+            <div class="actions">
+              <button id="getBtn">GET</button>
+              <button id="syncBtn">同步 OUT</button>
+              <button id="allOnBtn">全开</button>
+              <button id="allOffBtn" class="danger">全关</button>
+            </div>
+            <div class="manual-row">
+              <input id="manualCommand" type="text" value="OUT 0x00" autocomplete="off" spellcheck="false">
+              <button id="sendManualBtn">发送</button>
+            </div>
+            <p id="message" class="toast"></p>
+            <div class="notice">
+              当前 Pico demo 已支持状态打印；OUT 控制命令需要 Pico 固件增加串口接收解析。此页面发送的命令格式为 <strong>GET</strong>、<strong>OUT 0xNN</strong>、<strong>OUT n ON/OFF</strong>、<strong>RUN 0/1</strong>。
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-head">
+            <h2>串口日志</h2>
+            <button id="clearLogBtn" class="ghost">清空</button>
+          </div>
+          <div class="section-body">
+            <div id="serialLog" class="log"></div>
+          </div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    const state = {
+      port: null,
+      reader: null,
+      writer: null,
+      readAbort: false,
+      connected: false,
+      demoTimer: null,
+      run: null,
+      mode: null,
+      inMask: 0,
+      outMask: 0,
+      requestedOutMask: 0,
+      lastFrameAt: null,
+      lineBuffer: "",
+    };
+
+    const inputPins = [2, 3, 4, 5, 6, 7, 8, 9];
+    const outputPins = [10, 11, 12, 13, 14, 15, 16, 17];
+
+    const $ = (id) => document.getElementById(id);
+
+    const els = {
+      connectBtn: $("connectBtn"),
+      disconnectBtn: $("disconnectBtn"),
+      baudSelect: $("baudSelect"),
+      demoBtn: $("demoBtn"),
+      linkDot: $("linkDot"),
+      linkText: $("linkText"),
+      picoState: $("picoState"),
+      lastFrame: $("lastFrame"),
+      runValue: $("runValue"),
+      modeValue: $("modeValue"),
+      inMaskValue: $("inMaskValue"),
+      outMaskValue: $("outMaskValue"),
+      inputsGrid: $("inputsGrid"),
+      outputsGrid: $("outputsGrid"),
+      getBtn: $("getBtn"),
+      syncBtn: $("syncBtn"),
+      allOnBtn: $("allOnBtn"),
+      allOffBtn: $("allOffBtn"),
+      manualCommand: $("manualCommand"),
+      sendManualBtn: $("sendManualBtn"),
+      txState: $("txState"),
+      message: $("message"),
+      serialLog: $("serialLog"),
+      clearLogBtn: $("clearLogBtn"),
+    };
+
+    function hex8(value) {
+      return `0x${(value & 0xff).toString(16).toUpperCase().padStart(2, "0")}`;
+    }
+
+    function bit(value, index) {
+      return (value & (1 << index)) !== 0;
+    }
+
+    function setMessage(text) {
+      els.message.textContent = text || "";
+    }
+
+    function appendLog(text, direction = "rx") {
+      const prefix = direction === "tx" ? "TX" : direction === "sys" ? "SYS" : "RX";
+      const now = new Date().toLocaleTimeString();
+      els.serialLog.textContent += `[${now}] ${prefix} ${text}\n`;
+      els.serialLog.scrollTop = els.serialLog.scrollHeight;
+    }
+
+    function createInputCards() {
+      els.inputsGrid.innerHTML = "";
+      for (let i = 0; i < 8; i += 1) {
+        const card = document.createElement("div");
+        card.className = "channel";
+        card.id = `input-${i}`;
+        card.innerHTML = `
+          <div class="channel-name">IN${i + 1}</div>
+          <div class="gpio">GP${inputPins[i]}</div>
+          <div class="lamp"></div>
+          <div class="bit">bit${i}</div>
+        `;
+        els.inputsGrid.appendChild(card);
+      }
+    }
+
+    function createOutputCards() {
+      els.outputsGrid.innerHTML = "";
+      for (let i = 0; i < 8; i += 1) {
+        const card = document.createElement("div");
+        card.className = "channel";
+        card.id = `output-${i}`;
+        card.innerHTML = `
+          <div class="channel-name">OUT${i + 1}</div>
+          <div class="gpio">GP${outputPins[i]}</div>
+          <button class="switch" id="switch-${i}" title="切换 OUT${i + 1}" aria-label="OUT${i + 1}"></button>
+          <div class="bit">bit${i}</div>
+        `;
+        els.outputsGrid.appendChild(card);
+
+        const button = card.querySelector("button");
+        button.addEventListener("click", () => {
+          const next = state.requestedOutMask ^ (1 << i);
+          setRequestedOutput(next, true, i);
+        });
+      }
+    }
+
+    function render() {
+      els.runValue.textContent = state.run === null ? "--" : state.run ? "ON" : "OFF";
+      els.modeValue.textContent = state.mode || "--";
+      els.inMaskValue.textContent = hex8(state.inMask);
+      els.outMaskValue.textContent = hex8(state.outMask);
+      els.picoState.textContent = state.connected ? "已连接" : "离线";
+      els.lastFrame.textContent = state.lastFrameAt ? new Date(state.lastFrameAt).toLocaleTimeString() : "--";
+
+      const stale = state.connected && state.lastFrameAt && Date.now() - state.lastFrameAt > 3000;
+      els.linkDot.className = `dot ${state.connected ? stale ? "warn" : "ok" : ""}`;
+      els.linkText.textContent = state.connected ? stale ? "连接中 · 等待数据" : "已连接" : "未连接";
+
+      els.connectBtn.disabled = state.connected;
+      els.disconnectBtn.disabled = !state.connected;
+      els.baudSelect.disabled = state.connected;
+      els.getBtn.disabled = !state.connected;
+      els.syncBtn.disabled = !state.connected;
+      els.sendManualBtn.disabled = !state.connected;
+
+      for (let i = 0; i < 8; i += 1) {
+        const inputCard = $(`input-${i}`);
+        inputCard.classList.toggle("active", bit(state.inMask, i));
+
+        const outputCard = $(`output-${i}`);
+        const switchEl = $(`switch-${i}`);
+        const actualOn = bit(state.outMask, i);
+        const requestedOn = bit(state.requestedOutMask, i);
+        outputCard.classList.toggle("active", actualOn);
+        outputCard.classList.toggle("pending", requestedOn !== actualOn);
+        switchEl.classList.toggle("on", requestedOn);
+      }
+    }
+
+    function updateFromFrame(frame) {
+      let changed = false;
+      if (typeof frame.run === "boolean") {
+        state.run = frame.run;
+        changed = true;
+      }
+      if (typeof frame.mode === "string") {
+        state.mode = frame.mode.toUpperCase();
+        changed = true;
+      }
+      if (Number.isInteger(frame.inMask)) {
+        state.inMask = frame.inMask & 0xff;
+        changed = true;
+      }
+      if (Number.isInteger(frame.outMask)) {
+        state.outMask = frame.outMask & 0xff;
+        state.requestedOutMask = state.outMask;
+        changed = true;
+      }
+      if (changed) {
+        state.lastFrameAt = Date.now();
+        render();
+      }
+    }
+
+    function parseLine(line) {
+      const text = line.trim();
+      if (!text) return null;
+
+      if (text.startsWith("{") && text.endsWith("}")) {
+        try {
+          const json = JSON.parse(text);
+          return {
+            run: typeof json.run === "boolean" ? json.run : Number(json.run) === 1,
+            mode: json.mode,
+            inMask: parseNumber(json.in ?? json.inputs ?? json.inMask),
+            outMask: parseNumber(json.out ?? json.outputs ?? json.outMask),
+          };
+        } catch {
+          return null;
+        }
+      }
+
+      const runMatch = text.match(/\brun\s*=\s*([01]|on|off|true|false)\b/i);
+      const modeMatch = text.match(/\bmode\s*=\s*([A-Z0-9_-]+)\b/i);
+      const inMatch = text.match(/\bin\s*=\s*(0x[0-9a-f]{1,2}|\d{1,3})\b/i);
+      const outMatch = text.match(/\bout\s*=\s*(0x[0-9a-f]{1,2}|\d{1,3})\b/i);
+
+      if (!runMatch && !modeMatch && !inMatch && !outMatch) {
+        return null;
+      }
+
+      return {
+        run: runMatch ? /^(1|on|true)$/i.test(runMatch[1]) : undefined,
+        mode: modeMatch ? modeMatch[1] : undefined,
+        inMask: inMatch ? parseNumber(inMatch[1]) : undefined,
+        outMask: outMatch ? parseNumber(outMatch[1]) : undefined,
+      };
+    }
+
+    function parseNumber(value) {
+      if (value === undefined || value === null || value === "") return undefined;
+      if (typeof value === "number" && Number.isFinite(value)) return value & 0xff;
+      const text = String(value).trim();
+      const parsed = /^0x/i.test(text) ? Number.parseInt(text, 16) : Number.parseInt(text, 10);
+      return Number.isFinite(parsed) ? parsed & 0xff : undefined;
+    }
+
+    function handleIncomingText(text) {
+      state.lineBuffer += text;
+      const lines = state.lineBuffer.split(/\r?\n/);
+      state.lineBuffer = lines.pop() || "";
+
+      for (const line of lines) {
+        appendLog(line, "rx");
+        const frame = parseLine(line);
+        if (frame) updateFromFrame(frame);
+      }
+    }
+
+    async function connectSerial() {
+      if (!("serial" in navigator)) {
+        setMessage("当前浏览器不支持 Web Serial，请使用新版 Chrome 或 Edge。");
+        return;
+      }
+
+      stopDemo();
+
+      try {
+        state.port = await navigator.serial.requestPort();
+        await state.port.open({ baudRate: Number(els.baudSelect.value) });
+        state.writer = state.port.writable.getWriter();
+        state.connected = true;
+        state.readAbort = false;
+        setMessage("串口已连接。");
+        appendLog("Serial port opened", "sys");
+        render();
+        readLoop();
+        await sendCommand("GET");
+      } catch (error) {
+        setMessage(`连接失败：${error.message}`);
+        appendLog(`Open failed: ${error.message}`, "sys");
+        await disconnectSerial();
+      }
+    }
+
+    async function readLoop() {
+      const decoder = new TextDecoder();
+      try {
+        while (state.port && state.port.readable && !state.readAbort) {
+          state.reader = state.port.readable.getReader();
+          try {
+            while (true) {
+              const { value, done } = await state.reader.read();
+              if (done) break;
+              if (value) handleIncomingText(decoder.decode(value, { stream: true }));
+            }
+          } finally {
+            state.reader.releaseLock();
+            state.reader = null;
+          }
+        }
+      } catch (error) {
+        if (!state.readAbort) {
+          setMessage(`读取中断：${error.message}`);
+          appendLog(`Read error: ${error.message}`, "sys");
+        }
+      } finally {
+        if (!state.readAbort) await disconnectSerial();
+      }
+    }
+
+    async function disconnectSerial() {
+      state.readAbort = true;
+
+      try {
+        if (state.reader) await state.reader.cancel();
+      } catch {}
+
+      try {
+        if (state.writer) {
+          state.writer.releaseLock();
+          state.writer = null;
+        }
+      } catch {}
+
+      try {
+        if (state.port) await state.port.close();
+      } catch {}
+
+      state.port = null;
+      state.connected = false;
+      setMessage("串口已断开。");
+      render();
+    }
+
+    async function sendCommand(command) {
+      const text = command.trim();
+      if (!text) return;
+      if (!state.connected || !state.writer) {
+        setMessage("请先连接 Pico USB 串口。");
+        return;
+      }
+
+      const payload = `${text}\n`;
+      els.txState.textContent = "TX 发送中";
+      try {
+        await state.writer.write(new TextEncoder().encode(payload));
+        appendLog(text, "tx");
+        setMessage(`已发送：${text}`);
+      } catch (error) {
+        setMessage(`发送失败：${error.message}`);
+        appendLog(`Write error: ${error.message}`, "sys");
+      } finally {
+        els.txState.textContent = "TX 空闲";
+      }
+    }
+
+    async function setRequestedOutput(mask, shouldSend, changedIndex = null) {
+      state.requestedOutMask = mask & 0xff;
+      render();
+
+      if (!shouldSend) return;
+
+      if (changedIndex === null) {
+        await sendCommand(`OUT ${hex8(state.requestedOutMask)}`);
+        return;
+      }
+
+      const enabled = bit(state.requestedOutMask, changedIndex);
+      await sendCommand(`OUT ${changedIndex + 1} ${enabled ? "ON" : "OFF"}`);
+    }
+
+    function startDemo() {
+      if (state.demoTimer) {
+        stopDemo();
+        return;
+      }
+
+      if (state.connected) {
+        setMessage("请先断开真实串口。");
+        return;
+      }
+
+      let tick = 0;
+      state.demoTimer = window.setInterval(() => {
+        tick += 1;
+        const inMask = ((tick << 1) ^ (tick >> 1) ^ 0x25) & 0xff;
+        const outMask = tick % 4 === 0 ? state.requestedOutMask : state.outMask;
+        const line = `run=1 mode=MANUAL in=${hex8(inMask)} out=${hex8(outMask)}`;
+        appendLog(line, "rx");
+        updateFromFrame({ run: true, mode: "MANUAL", inMask, outMask });
+      }, 700);
+      els.demoBtn.textContent = "停止预览";
+      setMessage("正在使用本地预览数据。");
+    }
+
+    function stopDemo() {
+      if (!state.demoTimer) return;
+      window.clearInterval(state.demoTimer);
+      state.demoTimer = null;
+      els.demoBtn.textContent = "预览数据";
+      setMessage("");
+    }
+
+    els.connectBtn.addEventListener("click", connectSerial);
+    els.disconnectBtn.addEventListener("click", disconnectSerial);
+    els.demoBtn.addEventListener("click", startDemo);
+    els.clearLogBtn.addEventListener("click", () => {
+      els.serialLog.textContent = "";
+    });
+
+    els.getBtn.addEventListener("click", () => sendCommand("GET"));
+    els.syncBtn.addEventListener("click", () => setRequestedOutput(state.requestedOutMask, true));
+    els.allOnBtn.addEventListener("click", () => setRequestedOutput(0xff, true));
+    els.allOffBtn.addEventListener("click", () => setRequestedOutput(0x00, true));
+    els.sendManualBtn.addEventListener("click", () => sendCommand(els.manualCommand.value));
+    els.manualCommand.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") sendCommand(els.manualCommand.value);
+    });
+
+    window.setInterval(render, 1000);
+
+    createInputCards();
+    createOutputCards();
+    render();
+  </script>
+</body>
+</html>
