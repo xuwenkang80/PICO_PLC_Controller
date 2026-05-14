@@ -15,6 +15,8 @@
       --line: #d9dfd7;
       --green: #168047;
       --green-soft: #dff4e8;
+      --blue: #2563eb;
+      --blue-soft: #dbeafe;
       --amber: #b86e00;
       --amber-soft: #fff0cf;
       --red: #bf2f32;
@@ -169,7 +171,8 @@
     }
 
     select,
-    input[type="text"] {
+    input[type="text"],
+    input[type="number"] {
       border: 1px solid var(--line);
       border-radius: 6px;
       background: var(--panel);
@@ -223,7 +226,7 @@
 
     .summary-grid {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(6, minmax(120px, 1fr));
       gap: 10px;
     }
 
@@ -357,6 +360,102 @@
       cursor: not-allowed;
     }
 
+    .signal-map {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .signal-card {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 12px;
+      background: #fff;
+      display: grid;
+      gap: 6px;
+      min-height: 92px;
+    }
+
+    .signal-card.active {
+      border-color: rgba(37, 99, 235, 0.45);
+      background: var(--blue-soft);
+    }
+
+    .signal-card strong {
+      font-size: 18px;
+      color: var(--ink);
+    }
+
+    .signal-card span {
+      color: var(--muted);
+      font-size: 12px;
+      font-family: Consolas, "Cascadia Mono", monospace;
+    }
+
+    .stepper-controls {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      align-items: end;
+    }
+
+    .toggle-row,
+    .speed-row,
+    .direction-row {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px;
+      background: #fff;
+      min-height: 72px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .toggle-row {
+      grid-template-columns: 1fr auto;
+      align-items: center;
+    }
+
+    .control-label {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .segmented button.active {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .speed-row {
+      grid-column: span 2;
+    }
+
+    .speed-edit {
+      display: grid;
+      grid-template-columns: 1fr 88px;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .speed-edit input[type="range"] {
+      width: 100%;
+    }
+
+    .stepper-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
     .actions {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -426,6 +525,12 @@
       .io-grid {
         grid-template-columns: repeat(2, minmax(136px, 1fr));
       }
+
+      .summary-grid,
+      .signal-map,
+      .stepper-controls {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
 
     @media (max-width: 560px) {
@@ -442,8 +547,15 @@
       .summary-grid,
       .io-grid,
       .actions,
-      .manual-row {
+      .manual-row,
+      .signal-map,
+      .stepper-controls,
+      .speed-edit {
         grid-template-columns: 1fr;
+      }
+
+      .speed-row {
+        grid-column: auto;
       }
 
       .channel {
@@ -457,7 +569,7 @@
     <header>
       <div>
         <h1>Pico PLC HMI</h1>
-        <p class="subtitle">USB Web Serial 上位机 · IN1-IN8 监控 · OUT1-OUT8 控制</p>
+        <p class="subtitle">USB Web Serial 上位机 · IN/OUT 监控 · TB6600 步进控制</p>
       </div>
       <div class="status-strip">
         <span class="pill"><span id="linkDot" class="dot"></span><span id="linkText">未连接</span></span>
@@ -503,6 +615,71 @@
                 <span>OUT MASK</span>
                 <strong id="outMaskValue">0x00</strong>
               </div>
+              <div class="metric">
+                <span>STEPPER</span>
+                <strong id="stepValue">--</strong>
+              </div>
+              <div class="metric">
+                <span>DIR / PPS</span>
+                <strong id="dirValue">--</strong>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-head">
+            <h2>TB6600 步进控制</h2>
+            <span class="pill">OUT1=PUL · OUT2=DIR · OUT3=ENA</span>
+          </div>
+          <div class="section-body">
+            <div class="signal-map">
+              <div class="signal-card" id="signalPulse">
+                <strong>PUL</strong>
+                <span>OUT1 / GP10</span>
+                <span>脉冲输出</span>
+              </div>
+              <div class="signal-card" id="signalDir">
+                <strong>DIR</strong>
+                <span>OUT2 / GP11</span>
+                <span id="dirSignalText">CW</span>
+              </div>
+              <div class="signal-card" id="signalEnable">
+                <strong>ENA</strong>
+                <span>OUT3 / GP12</span>
+                <span id="enaSignalText">ON</span>
+              </div>
+            </div>
+
+            <div class="stepper-controls">
+              <div class="stepper-actions">
+                <button id="stepStartBtn" class="primary">启动</button>
+                <button id="stepStopBtn" class="danger">停止</button>
+              </div>
+
+              <label class="toggle-row">
+                <span>
+                  <span class="control-label">使能</span><br>
+                  <strong>ENA</strong>
+                </span>
+                <input id="stepEnableInput" type="checkbox" checked>
+              </label>
+
+              <div class="direction-row">
+                <span class="control-label">方向</span>
+                <div class="segmented">
+                  <button id="dirCwBtn" type="button">CW</button>
+                  <button id="dirCcwBtn" type="button">CCW</button>
+                </div>
+              </div>
+
+              <label class="speed-row">
+                <span class="control-label">速度 pulse/s</span>
+                <span class="speed-edit">
+                  <input id="stepSpeedRange" type="range" min="1" max="2000" step="1" value="200">
+                  <input id="stepSpeedInput" type="number" min="1" max="2000" step="1" value="200">
+                </span>
+              </label>
             </div>
           </div>
         </section>
@@ -547,7 +724,7 @@
             </div>
             <p id="message" class="toast"></p>
             <div class="notice">
-              当前 Pico demo 已支持状态打印；OUT 控制命令需要 Pico 固件增加串口接收解析。此页面发送的命令格式为 <strong>GET</strong>、<strong>OUT 0xNN</strong>、<strong>OUT n ON/OFF</strong>、<strong>RUN 0/1</strong>。
+              STEP 协议：<strong>STEP START</strong>、<strong>STEP STOP</strong>、<strong>STEP DIR CW/CCW</strong>、<strong>STEP SPEED n</strong>、<strong>STEP EN ON/OFF</strong>。手动 OUT 控制仍可用。
             </div>
           </div>
         </section>
@@ -578,12 +755,17 @@
       inMask: 0,
       outMask: 0,
       requestedOutMask: 0,
+      stepActive: null,
+      stepDir: "CW",
+      stepPps: 200,
+      stepEnabled: true,
       lastFrameAt: null,
       lineBuffer: "",
     };
 
     const inputPins = [2, 3, 4, 5, 6, 7, 8, 9];
     const outputPins = [10, 11, 12, 13, 14, 15, 16, 17];
+    const outputRoles = ["PUL", "DIR", "ENA", "", "", "", "", ""];
 
     const $ = (id) => document.getElementById(id);
 
@@ -600,8 +782,22 @@
       modeValue: $("modeValue"),
       inMaskValue: $("inMaskValue"),
       outMaskValue: $("outMaskValue"),
+      stepValue: $("stepValue"),
+      dirValue: $("dirValue"),
+      signalPulse: $("signalPulse"),
+      signalDir: $("signalDir"),
+      signalEnable: $("signalEnable"),
+      dirSignalText: $("dirSignalText"),
+      enaSignalText: $("enaSignalText"),
       inputsGrid: $("inputsGrid"),
       outputsGrid: $("outputsGrid"),
+      stepStartBtn: $("stepStartBtn"),
+      stepStopBtn: $("stepStopBtn"),
+      stepEnableInput: $("stepEnableInput"),
+      dirCwBtn: $("dirCwBtn"),
+      dirCcwBtn: $("dirCcwBtn"),
+      stepSpeedRange: $("stepSpeedRange"),
+      stepSpeedInput: $("stepSpeedInput"),
       getBtn: $("getBtn"),
       syncBtn: $("syncBtn"),
       allOnBtn: $("allOnBtn"),
@@ -652,12 +848,13 @@
     function createOutputCards() {
       els.outputsGrid.innerHTML = "";
       for (let i = 0; i < 8; i += 1) {
+        const role = outputRoles[i];
         const card = document.createElement("div");
         card.className = "channel";
         card.id = `output-${i}`;
         card.innerHTML = `
           <div class="channel-name">OUT${i + 1}</div>
-          <div class="gpio">GP${outputPins[i]}</div>
+          <div class="gpio">${role ? `${role} · ` : ""}GP${outputPins[i]}</div>
           <button class="switch" id="switch-${i}" title="切换 OUT${i + 1}" aria-label="OUT${i + 1}"></button>
           <div class="bit">bit${i}</div>
         `;
@@ -676,6 +873,8 @@
       els.modeValue.textContent = state.mode || "--";
       els.inMaskValue.textContent = hex8(state.inMask);
       els.outMaskValue.textContent = hex8(state.outMask);
+      els.stepValue.textContent = state.stepActive === null ? "--" : state.stepActive ? "RUN" : "STOP";
+      els.dirValue.textContent = `${state.stepDir} / ${state.stepPps}`;
       els.picoState.textContent = state.connected ? "已连接" : "离线";
       els.lastFrame.textContent = state.lastFrameAt ? new Date(state.lastFrameAt).toLocaleTimeString() : "--";
 
@@ -689,6 +888,22 @@
       els.getBtn.disabled = !state.connected;
       els.syncBtn.disabled = !state.connected;
       els.sendManualBtn.disabled = !state.connected;
+      els.stepStartBtn.disabled = !state.connected;
+      els.stepStopBtn.disabled = !state.connected;
+      els.dirCwBtn.disabled = !state.connected;
+      els.dirCcwBtn.disabled = !state.connected;
+      els.stepEnableInput.disabled = !state.connected;
+      els.stepSpeedRange.disabled = !state.connected;
+      els.stepSpeedInput.disabled = !state.connected;
+
+      els.stepEnableInput.checked = state.stepEnabled;
+      els.dirCwBtn.classList.toggle("active", state.stepDir === "CW");
+      els.dirCcwBtn.classList.toggle("active", state.stepDir === "CCW");
+      els.signalPulse.classList.toggle("active", bit(state.outMask, 0));
+      els.signalDir.classList.toggle("active", state.stepDir === "CW");
+      els.signalEnable.classList.toggle("active", state.stepEnabled);
+      els.dirSignalText.textContent = state.stepDir;
+      els.enaSignalText.textContent = state.stepEnabled ? "ON" : "OFF";
 
       for (let i = 0; i < 8; i += 1) {
         const inputCard = $(`input-${i}`);
@@ -723,6 +938,25 @@
         state.requestedOutMask = state.outMask;
         changed = true;
       }
+      if (typeof frame.stepActive === "boolean") {
+        state.stepActive = frame.stepActive;
+        changed = true;
+      }
+      if (typeof frame.stepDir === "string") {
+        state.stepDir = frame.stepDir.toUpperCase() === "CCW" ? "CCW" : "CW";
+        changed = true;
+      }
+      if (Number.isInteger(frame.stepPps)) {
+        const speed = clampSpeed(frame.stepPps);
+        state.stepPps = speed;
+        els.stepSpeedRange.value = String(speed);
+        els.stepSpeedInput.value = String(speed);
+        changed = true;
+      }
+      if (typeof frame.stepEnabled === "boolean") {
+        state.stepEnabled = frame.stepEnabled;
+        changed = true;
+      }
       if (changed) {
         state.lastFrameAt = Date.now();
         render();
@@ -741,6 +975,10 @@
             mode: json.mode,
             inMask: parseNumber(json.in ?? json.inputs ?? json.inMask),
             outMask: parseNumber(json.out ?? json.outputs ?? json.outMask),
+            stepActive: parseBool(json.step ?? json.stepper ?? json.stepActive),
+            stepDir: json.dir ?? json.stepDir,
+            stepPps: parseNumber16(json.pps ?? json.speed ?? json.stepPps),
+            stepEnabled: parseBool(json.ena ?? json.enable ?? json.stepEnabled),
           };
         } catch {
           return null;
@@ -751,8 +989,12 @@
       const modeMatch = text.match(/\bmode\s*=\s*([A-Z0-9_-]+)\b/i);
       const inMatch = text.match(/\bin\s*=\s*(0x[0-9a-f]{1,2}|\d{1,3})\b/i);
       const outMatch = text.match(/\bout\s*=\s*(0x[0-9a-f]{1,2}|\d{1,3})\b/i);
+      const stepMatch = text.match(/\bstep\s*=\s*([01]|on|off|run|stop|true|false)\b/i);
+      const dirMatch = text.match(/\bdir\s*=\s*(CW|CCW|FWD|REV|0|1)\b/i);
+      const ppsMatch = text.match(/\bpps\s*=\s*(\d{1,5})\b/i);
+      const enaMatch = text.match(/\bena\s*=\s*([01]|on|off|true|false)\b/i);
 
-      if (!runMatch && !modeMatch && !inMatch && !outMatch) {
+      if (!runMatch && !modeMatch && !inMatch && !outMatch && !stepMatch && !dirMatch && !ppsMatch && !enaMatch) {
         return null;
       }
 
@@ -761,7 +1003,17 @@
         mode: modeMatch ? modeMatch[1] : undefined,
         inMask: inMatch ? parseNumber(inMatch[1]) : undefined,
         outMask: outMatch ? parseNumber(outMatch[1]) : undefined,
+        stepActive: stepMatch ? /^(1|on|run|true)$/i.test(stepMatch[1]) : undefined,
+        stepDir: dirMatch ? normalizeDir(dirMatch[1]) : undefined,
+        stepPps: ppsMatch ? parseNumber16(ppsMatch[1]) : undefined,
+        stepEnabled: enaMatch ? /^(1|on|true)$/i.test(enaMatch[1]) : undefined,
       };
+    }
+
+    function parseBool(value) {
+      if (value === undefined || value === null || value === "") return undefined;
+      if (typeof value === "boolean") return value;
+      return /^(1|on|run|true)$/i.test(String(value).trim());
     }
 
     function parseNumber(value) {
@@ -770,6 +1022,22 @@
       const text = String(value).trim();
       const parsed = /^0x/i.test(text) ? Number.parseInt(text, 16) : Number.parseInt(text, 10);
       return Number.isFinite(parsed) ? parsed & 0xff : undefined;
+    }
+
+    function parseNumber16(value) {
+      if (value === undefined || value === null || value === "") return undefined;
+      const parsed = Number.parseInt(String(value).trim(), 10);
+      return Number.isFinite(parsed) ? parsed : undefined;
+    }
+
+    function normalizeDir(value) {
+      return /^(CCW|REV|0)$/i.test(String(value).trim()) ? "CCW" : "CW";
+    }
+
+    function clampSpeed(value) {
+      const parsed = Number.parseInt(String(value), 10);
+      if (!Number.isFinite(parsed)) return state.stepPps;
+      return Math.min(2000, Math.max(1, parsed));
     }
 
     function handleIncomingText(text) {
@@ -882,6 +1150,22 @@
       }
     }
 
+    async function sendStepperCommand(command) {
+      await sendCommand(command);
+      window.setTimeout(() => sendCommand("GET"), 80);
+    }
+
+    async function setStepperSpeed(value, shouldSend) {
+      const speed = clampSpeed(value);
+      state.stepPps = speed;
+      els.stepSpeedRange.value = String(speed);
+      els.stepSpeedInput.value = String(speed);
+      render();
+      if (shouldSend) {
+        await sendStepperCommand(`STEP SPEED ${speed}`);
+      }
+    }
+
     async function setRequestedOutput(mask, shouldSend, changedIndex = null) {
       state.requestedOutMask = mask & 0xff;
       render();
@@ -912,10 +1196,20 @@
       state.demoTimer = window.setInterval(() => {
         tick += 1;
         const inMask = ((tick << 1) ^ (tick >> 1) ^ 0x25) & 0xff;
-        const outMask = tick % 4 === 0 ? state.requestedOutMask : state.outMask;
-        const line = `run=1 mode=MANUAL in=${hex8(inMask)} out=${hex8(outMask)}`;
+        const pulse = tick % 2 === 0 ? 1 : 0;
+        const outMask = (pulse ? 0x01 : 0x00) | (state.stepDir === "CW" ? 0x02 : 0x00) | (state.stepEnabled ? 0x04 : 0x00);
+        const line = `run=1 mode=STEPPER in=${hex8(inMask)} out=${hex8(outMask)} step=1 dir=${state.stepDir} pps=${state.stepPps} ena=${state.stepEnabled ? 1 : 0}`;
         appendLog(line, "rx");
-        updateFromFrame({ run: true, mode: "MANUAL", inMask, outMask });
+        updateFromFrame({
+          run: true,
+          mode: "STEPPER",
+          inMask,
+          outMask,
+          stepActive: true,
+          stepDir: state.stepDir,
+          stepPps: state.stepPps,
+          stepEnabled: state.stepEnabled,
+        });
       }, 700);
       els.demoBtn.textContent = "停止预览";
       setMessage("正在使用本地预览数据。");
@@ -937,6 +1231,29 @@
     });
 
     els.getBtn.addEventListener("click", () => sendCommand("GET"));
+    els.stepStartBtn.addEventListener("click", () => sendStepperCommand("STEP START"));
+    els.stepStopBtn.addEventListener("click", () => sendStepperCommand("STEP STOP"));
+    els.stepEnableInput.addEventListener("change", () => {
+      state.stepEnabled = els.stepEnableInput.checked;
+      render();
+      sendStepperCommand(`STEP EN ${state.stepEnabled ? "ON" : "OFF"}`);
+    });
+    els.dirCwBtn.addEventListener("click", () => {
+      state.stepDir = "CW";
+      render();
+      sendStepperCommand("STEP DIR CW");
+    });
+    els.dirCcwBtn.addEventListener("click", () => {
+      state.stepDir = "CCW";
+      render();
+      sendStepperCommand("STEP DIR CCW");
+    });
+    els.stepSpeedRange.addEventListener("input", () => setStepperSpeed(els.stepSpeedRange.value, false));
+    els.stepSpeedRange.addEventListener("change", () => setStepperSpeed(els.stepSpeedRange.value, true));
+    els.stepSpeedInput.addEventListener("change", () => setStepperSpeed(els.stepSpeedInput.value, true));
+    els.stepSpeedInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") setStepperSpeed(els.stepSpeedInput.value, true);
+    });
     els.syncBtn.addEventListener("click", () => setRequestedOutput(state.requestedOutMask, true));
     els.allOnBtn.addEventListener("click", () => setRequestedOutput(0xff, true));
     els.allOffBtn.addEventListener("click", () => setRequestedOutput(0x00, true));
