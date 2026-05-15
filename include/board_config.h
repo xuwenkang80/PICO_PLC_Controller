@@ -18,7 +18,7 @@ inline constexpr std::array<uint, kInputCount> kInputPins = {
 };
 
 inline constexpr std::array<uint, kOutputCount> kOutputPins = {
-    10, 11, 12, 13, 14, 15, 16, 17,
+    15, 14, 13, 12, 11, 10, 16, 17,
 };
 
 constexpr bool kInputsActiveHigh = true;

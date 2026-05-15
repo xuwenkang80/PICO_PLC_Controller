@@ -4,7 +4,7 @@
 
 - `controller_demo` 通过 USB CDC 打印状态，CMake 中 `pico_enable_stdio_usb(controller_demo 1)` 已启用，UART stdio 未启用。
 - 8 路输入 `IO_IN1..IO_IN8` 对应 Pico `GP2..GP9`，高电平有效，软件去抖时间为 8 ms。
-- 8 路输出 `IO_OUT1..IO_OUT8` 对应 Pico `GP10..GP17`，高电平有效，`PicoPlcBoard::set_outputs(mask)` 按 bit0..bit7 写 OUT1..OUT8。
+- 8 路输出 `IO_OUT1..IO_OUT8` 对应 Pico `GP15, GP14, GP13, GP12, GP11, GP10, GP16, GP17`，高电平有效，`PicoPlcBoard::set_outputs(mask)` 按 bit0..bit7 写 OUT1..OUT8。
 - TB6600 步进模式使用 `OUT1=PUL`、`OUT2=DIR`、`OUT3=ENA`。
 - 固件每 1 秒打印一行状态，例如：
 

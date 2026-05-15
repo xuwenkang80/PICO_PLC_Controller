@@ -7,7 +7,7 @@
 | 功能 | Pico GPIO |
 | --- | --- |
 | IO_IN1..IO_IN8 | GP2..GP9 |
-| IO_OUT1..IO_OUT8 | GP10..GP17 |
+| IO_OUT1..IO_OUT8 | GP15, GP14, GP13, GP12, GP11, GP10, GP16, GP17 |
 | I2C SDA / SCL | GP18 / GP19 |
 | CONFIRM / MENU / RUN-STOP | GP20 / GP21 / GP22 |
 | WS2812 | GP26 |
@@ -31,9 +31,9 @@
 
 | PLC 输出 | Pico GPIO | TB6600 信号 |
 | --- | --- | --- |
-| OUT1 | GP10 | PUL |
-| OUT2 | GP11 | DIR |
-| OUT3 | GP12 | ENA |
+| OUT1 | GP15 | PUL |
+| OUT2 | GP14 | DIR |
+| OUT3 | GP13 | ENA |
 
 USB CDC 串口支持以下 ASCII 命令：
 
