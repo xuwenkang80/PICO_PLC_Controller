@@ -281,6 +281,11 @@
       background: var(--amber-soft);
     }
 
+    .channel.reserved {
+      border-color: rgba(37, 99, 235, 0.24);
+      background: #f8fbff;
+    }
+
     .channel-name {
       font-weight: 800;
       font-size: 15px;
@@ -718,9 +723,9 @@
           <div class="section-body">
             <div class="actions">
               <button id="getBtn">GET</button>
-              <button id="syncBtn">同步 OUT</button>
-              <button id="allOnBtn">全开</button>
-              <button id="allOffBtn" class="danger">全关</button>
+              <button id="syncBtn">同步 OUT4-8</button>
+              <button id="allOnBtn">辅助全开</button>
+              <button id="allOffBtn" class="danger">辅助全关</button>
             </div>
             <div class="manual-row">
               <input id="manualCommand" type="text" value="OUT 0x00" autocomplete="off" spellcheck="false">
@@ -728,7 +733,7 @@
             </div>
             <p id="message" class="toast"></p>
             <div class="notice">
-              STEP 协议：<strong>STEP START</strong>、<strong>STEP STOP</strong>、<strong>STEP DIR CW/CCW</strong>、<strong>STEP SPEED n</strong>、<strong>STEP EN ON/OFF</strong>。手动 OUT 控制仍可用。
+              STEP 协议控制 OUT1-OUT3；手动 OUT 控制只用于 OUT4-OUT8，二者可同时工作。
             </div>
           </div>
         </section>
@@ -770,7 +775,9 @@
 
     const inputPins = [2, 3, 4, 5, 6, 7, 8, 9];
     const outputPins = [15, 14, 13, 12, 11, 10, 16, 17];
-    const outputRoles = ["PUL", "DIR", "ENA", "", "", "", "", ""];
+    const outputRoles = ["PUL", "DIR", "ENA", "AUX1", "AUX2", "AUX3", "AUX4", "AUX5"];
+    const stepperReservedMask = 0x07;
+    const auxOutputMask = 0xf8;
 
     const $ = (id) => document.getElementById(id);
 
@@ -855,19 +862,21 @@
       els.outputsGrid.innerHTML = "";
       for (let i = 0; i < 8; i += 1) {
         const role = outputRoles[i];
+        const reserved = i < 3;
         const card = document.createElement("div");
-        card.className = "channel";
+        card.className = `channel ${reserved ? "reserved" : ""}`;
         card.id = `output-${i}`;
         card.innerHTML = `
           <div class="channel-name">OUT${i + 1}</div>
           <div class="gpio">${role ? `${role} · ` : ""}GP${outputPins[i]}</div>
           <button class="switch" id="switch-${i}" title="切换 OUT${i + 1}" aria-label="OUT${i + 1}"></button>
-          <div class="bit">bit${i}</div>
+          <div class="bit">${reserved ? "步进控制" : `bit${i}`}</div>
         `;
         els.outputsGrid.appendChild(card);
 
         const button = card.querySelector("button");
         button.addEventListener("click", () => {
+          if (reserved) return;
           const next = state.requestedOutMask ^ (1 << i);
           setRequestedOutput(next, true, i);
         });
@@ -894,6 +903,8 @@
       els.baudSelect.disabled = state.connected;
       els.getBtn.disabled = !state.connected;
       els.syncBtn.disabled = !state.connected;
+      els.allOnBtn.disabled = !state.connected;
+      els.allOffBtn.disabled = !state.connected;
       els.sendManualBtn.disabled = !state.connected;
       els.stepStartBtn.disabled = !state.connected;
       els.stepStopBtn.disabled = !state.connected;
@@ -920,9 +931,11 @@
         const switchEl = $(`switch-${i}`);
         const actualOn = bit(state.outMask, i);
         const requestedOn = bit(state.requestedOutMask, i);
+        const reserved = i < 3;
         outputCard.classList.toggle("active", actualOn);
-        outputCard.classList.toggle("pending", requestedOn !== actualOn);
-        switchEl.classList.toggle("on", requestedOn);
+        outputCard.classList.toggle("pending", !reserved && requestedOn !== actualOn);
+        switchEl.disabled = reserved || !state.connected;
+        switchEl.classList.toggle("on", reserved ? actualOn : requestedOn);
       }
     }
 
@@ -1181,16 +1194,17 @@
     }
 
     async function setRequestedOutput(mask, shouldSend, changedIndex = null) {
-      state.requestedOutMask = mask & 0xff;
+      state.requestedOutMask = (mask & auxOutputMask) | (state.requestedOutMask & stepperReservedMask);
       render();
 
       if (!shouldSend) return;
 
       if (changedIndex === null) {
-        await sendCommand(`OUT ${hex8(state.requestedOutMask)}`);
+        await sendCommand(`OUT ${hex8(state.requestedOutMask & auxOutputMask)}`);
         return;
       }
 
+      if (changedIndex < 3) return;
       const enabled = bit(state.requestedOutMask, changedIndex);
       await sendCommand(`OUT ${changedIndex + 1} ${enabled ? "ON" : "OFF"}`);
     }
@@ -1270,7 +1284,7 @@
       if (event.key === "Enter") setStepperSpeed(els.stepSpeedInput.value, true);
     });
     els.syncBtn.addEventListener("click", () => setRequestedOutput(state.requestedOutMask, true));
-    els.allOnBtn.addEventListener("click", () => setRequestedOutput(0xff, true));
+    els.allOnBtn.addEventListener("click", () => setRequestedOutput(auxOutputMask, true));
     els.allOffBtn.addEventListener("click", () => setRequestedOutput(0x00, true));
     els.sendManualBtn.addEventListener("click", () => sendCommand(els.manualCommand.value));
     els.manualCommand.addEventListener("keydown", (event) => {

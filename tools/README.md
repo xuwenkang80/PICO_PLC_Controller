@@ -46,3 +46,5 @@ STEP EN OFF
 `STEP SPEED` 的单位为 pulse/s，固件限制范围是 1..2000。执行步进命令后，Pico 会返回统一状态行。
 
 当前固件已把 TB6600 `ENA` 按低电平有效处理。如果驱动板 ENA 需要高电平有效，在固件中把 `kStepperEnableActiveHigh` 改为 `true` 后重新编译。
+
+`STEPPER` 模式下 OUT1-OUT3 被步进模块占用；上位机的辅助输出按钮只控制 OUT4-OUT8，可与步进电机同时运行。

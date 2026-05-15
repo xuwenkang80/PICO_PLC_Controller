@@ -52,6 +52,8 @@ STEP EN OFF
 
 当前固件已把 TB6600 `ENA` 按低电平有效处理，即 `STEP EN ON` 时 OUT3 输出关闭，`STEP EN OFF` 时 OUT3 输出打开。如果你的驱动板 ENA 需要高电平有效，可在 `demo/controller_demo.cpp` 中把 `kStepperEnableActiveHigh` 改为 `true`。
 
+`STEPPER` 模式下，OUT1-OUT3 由步进控制逻辑独占；OUT4-OUT8 仍可通过上位机开关或 `OUT 4 ON/OFF` 这类命令独立控制，不会打断步进脉冲。
+
 ## 构建
 
 ```powershell

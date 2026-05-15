@@ -31,6 +31,8 @@ struct StepperControl {
 constexpr uint8_t kStepperPulseBit = 1u << 0;   // OUT1 -> TB6600 PUL
 constexpr uint8_t kStepperDirBit = 1u << 1;     // OUT2 -> TB6600 DIR
 constexpr uint8_t kStepperEnableBit = 1u << 2;  // OUT3 -> TB6600 ENA
+constexpr uint8_t kStepperReservedOutputMask = kStepperPulseBit | kStepperDirBit | kStepperEnableBit;
+constexpr uint8_t kAuxOutputMask = static_cast<uint8_t>(~kStepperReservedOutputMask);
 constexpr bool kStepperEnableActiveHigh = false;
 constexpr uint16_t kMinStepperPps = 1;
 constexpr uint16_t kMaxStepperPps = 2000;
@@ -312,9 +314,13 @@ void process_command_line(char *line,
     if (equals_ignore_case(verb, "OUT") && argc >= 2) {
         uint8_t value = 0;
         if (argc == 2 && parse_u8(arg1, value)) {
-            manual_outputs = value;
-            mode = DemoMode::Manual;
-            running = true;
+            if (mode == DemoMode::Stepper) {
+                manual_outputs = static_cast<uint8_t>(value & kAuxOutputMask);
+            } else {
+                manual_outputs = value;
+                mode = DemoMode::Manual;
+                running = true;
+            }
             status_requested = true;
             return;
         }
@@ -323,13 +329,22 @@ void process_command_line(char *line,
             bool enabled = false;
             if (parse_bool_arg(arg2, enabled)) {
                 const uint8_t bit = static_cast<uint8_t>(1u << (value - 1));
+                if (mode == DemoMode::Stepper && (bit & kStepperReservedOutputMask) != 0) {
+                    printf("err=stepper_reserved_output out=%u\n", value);
+                    status_requested = true;
+                    return;
+                }
                 if (enabled) {
                     manual_outputs |= bit;
                 } else {
                     manual_outputs &= static_cast<uint8_t>(~bit);
                 }
-                mode = DemoMode::Manual;
-                running = true;
+                if (mode != DemoMode::Stepper) {
+                    mode = DemoMode::Manual;
+                    running = true;
+                } else {
+                    manual_outputs &= kAuxOutputMask;
+                }
                 status_requested = true;
                 return;
             }
@@ -489,7 +504,8 @@ int main() {
             }
         }
         if (mode == DemoMode::Stepper) {
-            output_mask = stepper_output_mask(stepper, running, now_us);
+            output_mask = static_cast<uint8_t>(stepper_output_mask(stepper, running, now_us) |
+                                               (manual_outputs & kAuxOutputMask));
         }
         board.set_outputs(output_mask);
 
