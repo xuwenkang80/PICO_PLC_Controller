@@ -1,0 +1,14 @@
+build/
+cmake-build-*/
+_deps/
+pico-sdk/
+
+*.elf
+*.uf2
+*.bin
+*.hex
+*.map
+*.dis
+
+.DS_Store
+Thumbs.db

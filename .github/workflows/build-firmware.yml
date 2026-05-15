@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout repository
@@ -23,8 +23,15 @@ jobs:
             cmake \
             gcc-arm-none-eabi \
             libnewlib-arm-none-eabi \
+            libstdc++-arm-none-eabi-dev \
+            libstdc++-arm-none-eabi-newlib \
             ninja-build \
             python3
+
+      - name: Check ARM C++ toolchain
+        run: |
+          arm-none-eabi-g++ --version
+          echo '#include <array>' | arm-none-eabi-g++ -x c++ -std=gnu++17 -mcpu=cortex-m0plus -mthumb -E - >/dev/null
 
       - name: Configure CMake
         run: >
