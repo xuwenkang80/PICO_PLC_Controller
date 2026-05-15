@@ -623,6 +623,10 @@
                 <span>DIR / PPS</span>
                 <strong id="dirValue">--</strong>
               </div>
+              <div class="metric">
+                <span>E-STOP</span>
+                <strong id="estopValue">--</strong>
+              </div>
             </div>
           </div>
         </section>
@@ -759,6 +763,7 @@
       stepDir: "CW",
       stepPps: 200,
       stepEnabled: true,
+      estopActive: null,
       lastFrameAt: null,
       lineBuffer: "",
     };
@@ -784,6 +789,7 @@
       outMaskValue: $("outMaskValue"),
       stepValue: $("stepValue"),
       dirValue: $("dirValue"),
+      estopValue: $("estopValue"),
       signalPulse: $("signalPulse"),
       signalDir: $("signalDir"),
       signalEnable: $("signalEnable"),
@@ -875,6 +881,7 @@
       els.outMaskValue.textContent = hex8(state.outMask);
       els.stepValue.textContent = state.stepActive === null ? "--" : state.stepActive ? "RUN" : "STOP";
       els.dirValue.textContent = `${state.stepDir} / ${state.stepPps}`;
+      els.estopValue.textContent = state.estopActive === null ? "--" : state.estopActive ? "ON" : "OFF";
       els.picoState.textContent = state.connected ? "已连接" : "离线";
       els.lastFrame.textContent = state.lastFrameAt ? new Date(state.lastFrameAt).toLocaleTimeString() : "--";
 
@@ -957,6 +964,10 @@
         state.stepEnabled = frame.stepEnabled;
         changed = true;
       }
+      if (typeof frame.estopActive === "boolean") {
+        state.estopActive = frame.estopActive;
+        changed = true;
+      }
       if (changed) {
         state.lastFrameAt = Date.now();
         render();
@@ -979,6 +990,7 @@
             stepDir: json.dir ?? json.stepDir,
             stepPps: parseNumber16(json.pps ?? json.speed ?? json.stepPps),
             stepEnabled: parseBool(json.ena ?? json.enable ?? json.stepEnabled),
+            estopActive: parseBool(json.estop ?? json.eStop ?? json.estopActive),
           };
         } catch {
           return null;
@@ -993,8 +1005,9 @@
       const dirMatch = text.match(/\bdir\s*=\s*(CW|CCW|FWD|REV|0|1)\b/i);
       const ppsMatch = text.match(/\bpps\s*=\s*(\d{1,5})\b/i);
       const enaMatch = text.match(/\bena\s*=\s*([01]|on|off|true|false)\b/i);
+      const estopMatch = text.match(/\bestop\s*=\s*([01]|on|off|true|false)\b/i);
 
-      if (!runMatch && !modeMatch && !inMatch && !outMatch && !stepMatch && !dirMatch && !ppsMatch && !enaMatch) {
+      if (!runMatch && !modeMatch && !inMatch && !outMatch && !stepMatch && !dirMatch && !ppsMatch && !enaMatch && !estopMatch) {
         return null;
       }
 
@@ -1007,6 +1020,7 @@
         stepDir: dirMatch ? normalizeDir(dirMatch[1]) : undefined,
         stepPps: ppsMatch ? parseNumber16(ppsMatch[1]) : undefined,
         stepEnabled: enaMatch ? /^(1|on|true)$/i.test(enaMatch[1]) : undefined,
+        estopActive: estopMatch ? /^(1|on|true)$/i.test(estopMatch[1]) : undefined,
       };
     }
 
@@ -1197,8 +1211,8 @@
         tick += 1;
         const inMask = ((tick << 1) ^ (tick >> 1) ^ 0x25) & 0xff;
         const pulse = tick % 2 === 0 ? 1 : 0;
-        const outMask = (pulse ? 0x01 : 0x00) | (state.stepDir === "CW" ? 0x02 : 0x00) | (state.stepEnabled ? 0x04 : 0x00);
-        const line = `run=1 mode=STEPPER in=${hex8(inMask)} out=${hex8(outMask)} step=1 dir=${state.stepDir} pps=${state.stepPps} ena=${state.stepEnabled ? 1 : 0}`;
+        const outMask = (pulse ? 0x01 : 0x00) | (state.stepDir === "CW" ? 0x02 : 0x00) | (state.stepEnabled ? 0x00 : 0x04);
+        const line = `run=1 mode=STEPPER in=${hex8(inMask)} out=${hex8(outMask)} step=1 dir=${state.stepDir} pps=${state.stepPps} ena=${state.stepEnabled ? 1 : 0} estop=0`;
         appendLog(line, "rx");
         updateFromFrame({
           run: true,
@@ -1209,6 +1223,7 @@
           stepDir: state.stepDir,
           stepPps: state.stepPps,
           stepEnabled: state.stepEnabled,
+          estopActive: false,
         });
       }, 700);
       els.demoBtn.textContent = "停止预览";

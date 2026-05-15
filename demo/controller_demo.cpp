@@ -31,7 +31,7 @@ struct StepperControl {
 constexpr uint8_t kStepperPulseBit = 1u << 0;   // OUT1 -> TB6600 PUL
 constexpr uint8_t kStepperDirBit = 1u << 1;     // OUT2 -> TB6600 DIR
 constexpr uint8_t kStepperEnableBit = 1u << 2;  // OUT3 -> TB6600 ENA
-constexpr bool kStepperEnableActiveHigh = true;
+constexpr bool kStepperEnableActiveHigh = false;
 constexpr uint16_t kMinStepperPps = 1;
 constexpr uint16_t kMaxStepperPps = 2000;
 
@@ -194,7 +194,7 @@ void reset_stepper_pulse(StepperControl &stepper) {
 
 void print_status(bool running, DemoMode mode, const plc::PicoPlcBoard &board, const StepperControl &stepper) {
     const bool step_active = running && mode == DemoMode::Stepper && stepper.enabled;
-    printf("run=%u mode=%s in=0x%02X out=0x%02X step=%u dir=%s pps=%u ena=%u\n",
+    printf("run=%u mode=%s in=0x%02X out=0x%02X step=%u dir=%s pps=%u ena=%u estop=%u\n",
            running ? 1 : 0,
            mode_name(mode),
            board.inputs(),
@@ -202,7 +202,8 @@ void print_status(bool running, DemoMode mode, const plc::PicoPlcBoard &board, c
            step_active ? 1 : 0,
            stepper.dir_cw ? "CW" : "CCW",
            stepper.speed_pps,
-           stepper.enabled ? 1 : 0);
+           stepper.enabled ? 1 : 0,
+           board.button_down(plc::Button::RunStop) ? 1 : 0);
 }
 
 void process_command_line(char *line,
@@ -375,6 +376,7 @@ void update_display(plc::Ssd1306 &display,
                     DemoMode mode,
                     uint8_t inputs,
                     uint8_t outputs,
+                    bool estop_active,
                     const StepperControl &stepper) {
     if (!display.available()) {
         return;
@@ -386,20 +388,23 @@ void update_display(plc::Ssd1306 &display,
     std::snprintf(line, sizeof(line), "RUN:%s MODE:%s", running ? "ON" : "OFF", mode_name(mode));
     display.draw_text(0, 0, line);
 
-    if (mode == DemoMode::Stepper) {
+    if (estop_active) {
+        display.draw_text(0, 2, "E-STOP ACTIVE");
+    } else if (mode == DemoMode::Stepper) {
         std::snprintf(line, sizeof(line), "STEP:%s %upps", stepper.dir_cw ? "CW" : "CCW", stepper.speed_pps);
+        display.draw_text(0, 2, line);
     } else {
         std::snprintf(line, sizeof(line), "IN:%02X OUT:%02X", inputs, outputs);
+        display.draw_text(0, 2, line);
     }
-    display.draw_text(0, 2, line);
 
     if (mode == DemoMode::Stepper) {
         display.draw_text(0, 4, "OUT1 PUL OUT2 DIR");
         display.draw_text(0, 5, "OUT3 ENA");
-        display.draw_text(0, 6, running ? "STEPPER RUN" : "STEPPER STOP");
+        display.draw_text(0, 6, estop_active ? "E-STOP STOP" : running ? "STEPPER RUN" : "STEPPER STOP");
     } else {
         display.draw_text(0, 4, "MENU MODE");
-        display.draw_text(0, 5, "RUN/STOP TOGGLE");
+        display.draw_text(0, 5, "E-STOP HOLDS STOP");
         display.draw_text(0, 6, "CONFIRM LATCH");
     }
     display.display();
@@ -447,8 +452,9 @@ int main() {
         bool status_requested = false;
         poll_serial_commands(running, mode, manual_outputs, stepper, status_requested);
 
-        if (board.button_pressed(plc::Button::RunStop)) {
-            running = !running;
+        const bool estop_active = board.button_down(plc::Button::RunStop);
+        if (estop_active) {
+            running = false;
         }
 
         if (board.button_pressed(plc::Button::Menu)) {
@@ -495,7 +501,7 @@ int main() {
 
         if (now_ms - last_display_ms >= 200) {
             last_display_ms = now_ms;
-            update_display(display, running, mode, board.inputs(), board.outputs(), stepper);
+            update_display(display, running, mode, board.inputs(), board.outputs(), estop_active, stepper);
         }
 
         if (now_ms - last_log_ms >= 1000) {
